@@ -1,0 +1,463 @@
+from data.database import QSDatabase
+from data.version_history import VERSION
+from data.achievements import Achievement
+from data.timing import Timer
+import os
+import sys
+import time
+import datetime
+
+
+
+class QuitSmoking:
+	def __init__(self):
+		self.data = QSDatabase()
+		self.achments = Achievement()
+		self.default = {'epoch_stamp':time.time(), 'smoked_daily':20, 'pack_price':5.15, 
+			'time_pattern':'%m/%d/%Y %I:%M %p', 'life':11, 'pack_amount':20, 'currency_sign':'$', 'pbars':False, 'pbar_fill':'#', 'pbar_empty':' ', 'dst':True}
+		self.timer = Timer()
+		self.first_time_start(self.default)
+		
+		
+	def first_time_start(self, obj):
+		'''create default database file'''
+		if not os.path.exists(self.data.filename):
+			self.data.save(obj)
+			self.factory_settings()
+			
+	def factory_settings(self):
+		'''is called upon by numerous methods, thus needed to save default'''
+		d = self.data.load()
+		self.timer.update(time_stamp=d['epoch_stamp'])
+		self.data.save(self.default) #needs this if called upon by itself
+		
+	def update_file(self, 
+			time_stamp=None, 
+			time_string=None, 
+			cigs=None, 
+			price=None, 
+			time_pattern=None,
+			life_per_cig=None,
+			pack_amount=None,
+			currency_sign=None):
+		'''save to data to file'''
+		if time_stamp and time_string:
+			raise Exception('Cannot have both time_stamp and time_string arguments. time_string will update the time_stamp by itself')
+			
+		d = self.data.load()
+		
+		if cigs:
+			d['smoked_daily'] = cigs
+			self.cigs = cigs
+		if price:
+			d['pack_price'] = price
+			self.price = price
+		if time_stamp:
+			self.timer.update(time_stamp=time_stamp) #update time_string
+			d['epoch_stamp'] = self.timer.time_stamp
+		if time_string:
+			self.timer.update(time_string=time_string) #update time stamp
+			d['epoch_stamp'] = self.timer.time_stamp
+		if time_pattern:
+			self.timer.update(time_pattern=time_pattern)
+			d['time_pattern'] = time_pattern
+		if life_per_cig:
+			d['life'] = life_per_cig
+		if pack_amount:
+			d['pack_amount'] = pack_amount
+		if currency_sign:
+			d['currency_sign'] = currency_sign
+		self.data.save(d)
+		
+	def total_cigs_not_smoked(self):
+		'''return total cigs not smoked based on smoked daily and timestamp'''
+		d = self.data.load()
+		
+		hr_cig = float(d['smoked_daily']) / 24
+		min_cig = hr_cig / 60
+		sec_cig = min_cig / 60
+		total_cig = (time.time() - d['epoch_stamp']) * sec_cig
+		return total_cig
+		
+	def life_saved(self):
+		'''return dictionary of time difference from now and seconds saved'''
+		d = self.data.load()
+		minutes_saved = (d['life'] * 60) * self.total_cigs_not_smoked()
+		data = self.timer.time_since_stamp(time.time() - minutes_saved) #keep False setting for dst
+		return data
+		
+	def money_saved(self):
+		'''return string of money saved'''
+		d = self.data.load()
+		packs = float(d['smoked_daily']) / d['pack_amount'] #packs per day
+		price = packs * float(d['pack_price'])
+		hr_price = price / 24
+		min_price = hr_price / 60
+		sec_price = min_price / 60
+		total_price = (time.time() - d['epoch_stamp']) * sec_price
+		#return '{}{:.2f}'.format(d['currency_sign'], total_price)
+		return '{}{:,.2f}'.format(d['currency_sign'], total_price)
+		
+	def health_progress(self, total_seconds_of_ach, health_info=''):
+		'''return string of health progress'''
+		d = self.data.load()
+		progress_char = d['pbar_fill']
+		empty_char = d['pbar_empty']
+		time_since = time.time() - d['epoch_stamp']
+		if time_since >= total_seconds_of_ach and d['pbars'] == 'remove_completed':
+			return ''
+		if d['pbars'] == 'bar_only':
+			health_info = health_info.split(':')[0]
+		seconds_per_percent = total_seconds_of_ach / 100
+		num = int(time_since / seconds_per_percent)
+		if num <= 100:
+			spacer = int(33-int(num/3)) * empty_char
+			filler = int(num/3) * progress_char
+			return"\n[{}{}] {}%  {}".format(filler,spacer,num, health_info)
+		elif num >= 100:
+			spacer = int(33-int(100/3)) * empty_char
+			filler = int(100/3) * progress_char
+			return"\n[{}{}] {}%  {}".format(filler,spacer,100, health_info)
+			
+	def ach_string(self, lister_type, obj):
+		'''
+		lister  = ('time', 'life', 'cig')
+		'''
+		ach_obj = obj
+		if lister_type == 'time':
+			lister = ach_obj.time_list
+		elif lister_type == 'life':
+			lister = ach_obj.life_list
+		elif lister_type == 'cig':
+			lister = ach_obj.cig_list
+		d = self.data.load()
+		time_since = time.time() - d['epoch_stamp']
+		total_cigs = self.total_cigs_not_smoked()
+		life_saved = self.life_saved()['total_sec']
+		ach_string = ''
+
+		#testing
+		#time_since = 370000
+		#total_cigs = 301
+		#life_saved = 3700
+		#time_since_stamp
+		
+		for ach in lister:
+			for key, val in ach.items():
+				name = key
+				value = val['value']
+				info = val['info']
+				if lister_type == 'time':
+					if time_since >= value:
+						ach_string += ach_obj.stringer(name, info)
+				elif lister_type == 'life':
+					if life_saved >= value:
+						ach_string += ach_obj.stringer(name, info)
+				elif lister_type == 'cig':
+					if total_cigs >= value:
+						ach_string += ach_obj.stringer(name, info)
+		return ach_string
+		
+	def term_stats(self):
+		'''display stats for terminal'''
+		d = self.data.load()
+		time_string_disp = time.strftime(d['time_pattern'], time.localtime(d['epoch_stamp']))
+		print('Quit Date: {}'.format(time_string_disp))
+		print('Cigarettes avoided: {}'.format(int(self.total_cigs_not_smoked())))
+		print('Money saved: {}'.format(self.money_saved()))
+		
+		last_smoke = self.timer.time_since_stamp(d['epoch_stamp'], d['dst'])
+		print('Since last smoke: {DAY} days, {HOUR} hours, {MIN} minutes, {SEC} seconds'.format(
+			DAY=last_smoke['day'],
+			HOUR=last_smoke['hour'],
+			MIN=last_smoke['min'],
+			SEC=last_smoke['sec']))
+		
+		if d['life'] > 0: #display life only if above 1
+			life_saved = self.life_saved()
+			print('Life saved: {DAY} days, {HOUR} hours, {MIN} minutes, {SEC} seconds'.format(
+				DAY=life_saved['day'],
+				HOUR=life_saved['hour'],
+				MIN=life_saved['min'],
+				SEC=life_saved['sec']))
+		print('You are on day: {}'.format(last_smoke['day'] + 1))
+		
+		if d['pbars'] != 'display_none':
+			print(self.health_progress(1200, '20 minutes: Your blood pressure, pulse rate, and the temperature of your hands and feet are returned to normal'), end='')
+			print(self.health_progress(28800, '8 Hours: Remaining nicotine in your bloodstream has fallen to 6.25% of normal peak daily levels, a 93.25% reduction'), end='')
+			print(self.health_progress(43200, '12 Hours: Your blood oxygen level has increased to normal and carbon monoxide levels has dropped to normal'), end='')
+			print(self.health_progress(86400, '24 Hours: Anxieties peak in intensity and within two weeks should return to near pre-cessation levels'), end='')
+			print(self.health_progress(172800, '48 Hours: Damaged nerve endings have started to regrow and your sense of smell and taste are beginning to return to normal. Cessation anger and irritability peaks'), end='')
+			print(self.health_progress(259200, '72 Hours: Your entire body will test 100% nicotine-free and over 90% of all nicotine metabolites (the chemicals it breaks down into) will now have passed from your body via your urine. Symptoms of chemical withdrawal have peaked in intensity, including restlessness. The number of cue induced crave episodes experienced during any quitting day will peak for the "average" ex-user. Lung bronchial tubes leading to air sacs (alveoli) are beginning to relax in recovering smokers. Breathing is becoming easier and the lungs functional abilities are starting to increase'), end='')
+			print(self.health_progress(691200, '5-8 days: The "average" ex-smoker will encounter an "average" of three cue induced crave episodes per day. Although we may not be "average" and although serious cessation time distortion can make minutes feel like hours, it is unlikely that any single episode will last longer than 3 minutes. Keep a clock handy and time them'), end='')
+			print(self.health_progress(864000, '10 days: The "average ex-user is down to encountering less than two crave episodes per day, each less than 3 minutes'), end='')
+			print(self.health_progress(1209600, '10 Days - 2 Weeks: Recovery has likely progressed to the point where your addiction is no longer doing the talking. Blood circulation in our gums and teeth are now similar to that of a non-user'), end='')
+			print(self.health_progress(1814400, '21 Days: Brain acetylcholine receptor counts up-regulated in response to nicotine\'s presence have now down-regulated and receptor binding has returned to levels seen in the brains of non-smokers'), end='')
+			print(self.health_progress(2419200, '2-4 Weeks: Cessation related anger, anxiety, difficulty concentrating, impatience, insomnia, restlessness and depression have ended'), end='')
+			print(self.health_progress(4838400, '8 Weeks: Insulin resistance in smokers has normalized despite average weight gain of 2.7 kg (1997 study)'), end='')
+			print(self.health_progress(7948800, '2 Weeks - 3 Months: Your heart attack risk has started to drop. Your lung function is beginning to improve'), end='')
+			print(self.health_progress(8035200, '3 Weeks - 3 Months: Your circulation has substantially improved. Walking has become easier. Your chronic cough, if any, has likely disappeared'), end='')
+			print(self.health_progress(24105600, '1-9 Months: Any smoking related sinus congestion, fatigue or shortness of breath have decreased. Cilia have regrown in your lungs, thereby increasing their ability to handle mucus, keep your lungs clean and reduce infections. Your body\'s overall energy has increased'), end='')
+			print(self.health_progress(31104000, '1 Year: Your excess risk of coronary heart disease, heart attack and stroke has dropped to less than half that of a smoker'), end='')
+			print(self.health_progress(311040000, '10 Years: Your risk of being diagnosed with lung cancer is between 30% and 50% of that for a continuing smoker (2005 study). Risk of death from lung cancer has declined by almost half if you were an average smoker (one pack per day).  Your risk of pancreatic cancer has declined to that of a never-smoker (2011 study), while risk of cancer of the mouth, throat and esophagus has also declined. Your risk of developing diabetes is now similar to that of a never-smoker'), end='')
+			print(self.health_progress(411156000, '13 Years: Your risk of smoking induced tooth loss has declined to that of a never-smoker'), end='')
+			print(self.health_progress(473364000, '5-15 Years: Your risk of stroke has declined to that of a non-smoker'), end='')
+			print(self.health_progress(473364000, '15 Years: Your risk of coronary heart disease is now that of a person who has never smoked'), end='')
+			print(self.health_progress(622080000, '20 Years: Female excess risk of death from all smoking related causes, including lung disease and cancer, has now reduced to that of a never-smoker. Risk of pancreatic cancer reduced to that of a never-smoker'), end='')
+	
+		#print('\n' + self.ach_string('time', self.achments), end='')
+		#print(self.ach_string('life', self.achments), end='')
+		#print(self.ach_string('cig', self.achments), end='')
+
+	def term_menu(self):
+		'''terminal menu'''
+		print('1) Display Stats')
+		print('2) Achievements')
+		print('3) Settings')
+		choice = input()
+		if choice == '1':
+			while True:
+				print('\n' * 50)
+				app.term_stats()
+				time.sleep(1)
+		elif choice == '2':
+			s = ''
+			s += self.ach_string('time', self.achments)
+			s += self.ach_string('cig', self.achments)
+			s += self.ach_string('life', self.achments)
+			#print('s is: "{}"'.format(s))
+			if s:
+				print(s)
+			else:
+				print('You currently do not have any achievements. Keep you quit and you will')
+			return False
+			
+		elif choice == '3':
+			d = self.data.load()
+			print('1) Reset to factory settings')
+			print('2) change time pattern format [{}]'.format(d['time_pattern']))
+			print('3) change cigarettes smoked per day [{}]'.format(d['smoked_daily']))
+			print('4) change cigarettes pack price [{}]'.format(d['pack_price']))
+			print('5) change cigarettes pack amount [{}]'.format(d['pack_amount']))
+			print('6) change currency sign [{}]'.format(d['currency_sign']))
+			print('7) change life in minutes saved per cigarette [{}]'.format(d['life']))
+			print('8) change timetable and progress bars in stats [{},"{}","{}"]'.format(d['pbars'],d['pbar_fill'],d['pbar_empty']))
+			print('9) change daylight savings time [{}]'.format(d['dst']))
+			print('10) change quit date [{}]'.format(time.strftime(d['time_pattern'], time.localtime(d['epoch_stamp']))))
+			
+			choice2 = input()
+			if choice2 == '1':
+				self.factory_settings()
+				return False
+			elif choice2 == '2':
+				print('current time pattern is: {}'.format(d['time_pattern']))
+				pat = input('Enter new time pattern format [a to abort, d for default pattern]: \n')
+				if pat == 'a':
+					return False
+				elif pat == 'd':
+					pat = self.default['time_pattern']
+				d['time_pattern'] = pat
+			elif choice2 == '3':
+				print('current cigarettes smoked per day: {}'.format(d['smoked_daily']))
+				new = input('enter new number [a to abort]: ')
+				if new == 'a':
+					return False
+				assert int(new)
+				d['smoked_daily'] = int(new)
+			elif choice2 == '4':
+				print('current cigarettes pack price: {}'.format(d['pack_price']))
+				new = input('enter new decimal number [a to abort]: ')
+				if new == 'a':
+					return False
+				assert float(new)
+				d['pack_price'] = float(new)
+			elif choice2 == '5':
+				print('number of cigarettes in your pack: {}'.format(d['pack_amount']))
+				new = input('enter new number [a to abort]: ')
+				if new == 'a':
+					return False
+				assert int(new)
+				d['pack_amount'] = int(new)
+			elif choice2 == '6':
+				print('current currency: {}'.format(d['currency_sign']))
+				new = input('enter new number [a to abort]: ')
+				if new == 'a':
+					return False
+				assert len(new) == 1
+				d['currency_sign'] = new
+			elif choice2 == '7':
+				print('current life in minutes saved per cigarette: {}'.format(d['life']))
+				new = input('enter new number [a to abort, 0 to ignore]: ')
+				if new == 'a':
+					return False
+				if new == '0': #zero
+					pass
+				else:
+					assert int(new)
+				d['life'] = int(new)
+			elif choice2 == '8':
+				print('current display timetable and progress bars in stats: {}, filler:"{}", empty:"{}"'.format(d['pbars'],d['pbar_fill'],d['pbar_empty']))
+				new = input('1) display all progress bars and health information\n2) display no progress bars and no health information\n3) display only progress bars < 100% and health information\n4) display only progress bars and no health information\n5) change progress bar filler charater\n6) change progress bar empty character\nEnter number of choice:')
+				if new == '1':
+					d['pbars'] = 'display_all'
+				elif new == '2':
+					d['pbars'] = 'display_none'
+				elif new == '3':
+					d['pbars'] = 'remove_completed'
+				elif new == '4':
+					d['pbars'] = 'bar_only'
+					
+				elif new == '5':
+					filler = input('Enter new character for progress bar filler: ')
+					if len(filler) == 1:
+						d['pbar_fill'] = filler
+					else:
+						print('Progress bar filler must be one character')
+				elif new == '6':
+					empty = input('Enter new character for progress bar empty: ')
+					if len(empty) == 1:
+						d['pbar_empty'] = empty
+					else:
+						print('Progress bar empty must be one character')
+			elif choice2 == '9':
+				print('Current Daylight Savings Time setting is {}'.format(d['dst']))
+				print('If daylight savings time is true, it will display 1 hour extra in your time since smoking.')
+				new = input('1) Set to true\n2) Set to false: \n')
+				if new == '1':
+					d['dst'] = True
+				elif new == '2':
+					d['dst'] = False
+					
+			elif choice2 == '10':
+				print('1) change quit date to right now [{}]'.format(time.strftime(d['time_pattern'], time.localtime(time.time()))))
+				print('2) change quit date by string [{}]'.format(time.strftime(d['time_pattern'], time.localtime(d['epoch_stamp']))))
+				print('3) change quit date by unix epoch? [{}]'.format(d['epoch_stamp']))
+				print('4) change quit date by questions')
+				choice3 = input()
+				if choice3 == '1':
+					d['epoch_stamp'] = time.time()
+				elif choice3 == '2':
+					print('Current quit date string is: {}'.format(time.strftime(d['time_pattern'], time.localtime(d['epoch_stamp']))))
+					print('current time pattern is: {}'.format(d['time_pattern']))
+					print('You must keep the current time pattern when changing by string. To change your quit date, just create a new time string of when you quit smoking, in the current time pattern.')
+					new = input('enter new time string [a to abort]: ')
+					try:
+						self.timer.update(time_string=new) #update time stamp
+						d['epoch_stamp'] = self.timer.time_stamp
+					except ValueError:
+						print('\nYour new time string {} did not match the current time pattern {}, operation aborted!'.format(new, d['time_pattern']))
+				elif choice3 == '3':
+					new = input('enter new unix epoch number [a to abort]: ')
+					if new == 'a':
+						return False
+					assert float(new)
+					d['epoch_stamp'] = float(new)
+				elif choice3 == '4':
+					m_or_h = list(range(1,13))
+					day = list(range(1,32))
+					minute = list(range(0,60))
+					year = list(range(1970, datetime.datetime.now().year + 1))
+					
+					while True:
+						month_ch = input('What month did you quit? {}-{}: '.format(m_or_h[0],m_or_h[-1]))
+						incorrect = '{} is not a valid month'.format(month_ch)
+						try:
+							if int(month_ch) in m_or_h:
+								break
+							else:
+								print(incorrect)
+						except ValueError:
+							print(incorrect)
+					while True:
+						day_ch = input('What day did you quit? {}-{}: '.format(day[0], day[-1]))
+						incorrect = '{} is not a valid day'.format(day_ch)
+						try:
+							if int(day_ch) in day:
+								break
+							else:
+								print(incorrect)
+						except ValueError:
+							print(incorrect)
+					while True:
+						year_ch = input('What year did you quit? {}-{}: '.format(year[0], year[-1]))
+						incorrect = '{} is not a valid year'.format(year_ch)
+						try:
+							if int(year_ch) in year:
+								break
+							else:
+								print(incorrect)
+						except ValueError:
+							print(incorrect)
+						
+					while True:
+						hour_ch = input('What hour did you quit? {}-{}: '.format(m_or_h[0],m_or_h[-1]))
+						incorrect = '{} is not a valid hour'.format(hour_ch)
+						try:
+							if int(hour_ch) in m_or_h:
+								break
+							else:
+								print(incorrect)
+						except ValueError:
+							print(incorrect)
+					while True:
+						minute_ch = input('What minute did you quit? {}-{}: '.format(minute[0],minute[-1]))
+						incorrect = '{} is not a valid minute'.format(minute_ch)
+						try:
+							if int(minute_ch) in minute:
+								break
+							else:
+								print(incorrect)
+						except ValueError:
+							print(incorrect)
+					while True:
+						period_ch = input('What period? [AM/PM]: ')
+						if period_ch == 'AM' or period_ch == 'PM':
+							break
+						else:
+							print('{} is not a valid period'.format(period_ch))
+						
+							
+					a = [month_ch, day_ch, year_ch, hour_ch, minute_ch, period_ch]
+					new_epoch = datetime.datetime(int(year_ch), int(month_ch), int(day_ch), int(hour_ch), int(minute_ch), 0)
+					timestamp = new_epoch.strftime(d['time_pattern'])
+					#print(timestamp)
+					try:
+						self.timer.update(time_string=timestamp) #update time stamp
+						d['epoch_stamp'] = self.timer.time_stamp
+					except ValueError:
+						print('\nYour new time string {} did not match the current time pattern {}, operation aborted!'.format(new, d['time_pattern']))
+				
+			self.data.save(d)
+			return False
+		else:
+			return False
+			
+			
+def is_ok():
+	'''check dependencies before starting up program'''
+	version = sys.version.split()[0]
+
+	if sys.version[0] != '3':
+		sys.stdout.write('Program is written in python3.x. You are running Python {}\n'.format(version))
+		sys.exit()
+
+app = QuitSmoking()
+print('Quit Smoking Terminal v{}\n'.format(VERSION))
+
+while True:
+	try:
+		val = app.term_menu()
+		if val == False:
+			continue
+		else:
+			break
+	except KeyboardInterrupt:
+		import sys
+		sys.exit()
+
+
+
+#time_since_stamp
+
+
+

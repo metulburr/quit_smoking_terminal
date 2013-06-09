@@ -12,8 +12,8 @@ How to start the program:
 	2) open cmd.exe
 	3) cd <the location where this README is> (the full path to this directory)
 	4) execute in the the prompt:
-	python3 quitsmomking.py
+	python3 quitsmoking.py
 	(the program should execute)
 
-	If you have problems executing python code. Feel free to ask how on http://python-forum.org/index.php or if you need help http://docs.python.org/3/tutorial/interpreter.html#invoking-the-interpreter and read some tutorials.
+	If you have problems executing python code. Feel free to ask how on http://python-forum.org or if you need help http://docs.python.org/3/tutorial/interpreter.html#invoking-the-interpreter and read some tutorials.
 	

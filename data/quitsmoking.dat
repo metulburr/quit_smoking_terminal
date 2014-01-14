@@ -1,1 +1,1 @@
-{"life": 11, "epoch_stamp": 1360999800, "pack_amount": 20, "dst": true, "pbar_empty": "-", "currency_sign": "$", "pack_price": 0.86, "time_pattern": "%m/%d/%Y %I:%M %p", "pbar_fill": "#", "pbars": "bar_only", "smoked_daily": 40}
+{"life": 11, "pbar_empty": " ", "pack_price": 5.15, "time_pattern": "%m/%d/%Y %I:%M %p", "smoked_daily": 20, "currency_sign": "$", "epoch_stamp": 1389746977.876, "pack_amount": 20, "dst": true, "pbars": false, "pbar_fill": "#"}

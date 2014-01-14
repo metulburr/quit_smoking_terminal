@@ -251,7 +251,7 @@ class QuitSmoking:
 				return False
 			elif choice2 == '2':
 				print('current time pattern is: {}'.format(d['time_pattern']))
-				pat = raw_input('Enter new time pattern format [a to abort, d for default pattern]: \n')
+				pat = input('Enter new time pattern format [a to abort, d for default pattern]: \n')
 				if pat == 'a':
 					return False
 				elif pat == 'd':
@@ -259,35 +259,35 @@ class QuitSmoking:
 				d['time_pattern'] = pat
 			elif choice2 == '3':
 				print('current cigarettes smoked per day: {}'.format(d['smoked_daily']))
-				new = raw_input('enter new number [a to abort]: ')
+				new = input('enter new number [a to abort]: ')
 				if new == 'a':
 					return False
 				assert int(new)
 				d['smoked_daily'] = int(new)
 			elif choice2 == '4':
 				print('current cigarettes pack price: {}'.format(d['pack_price']))
-				new = raw_input('enter new decimal number [a to abort]: ')
+				new = input('enter new decimal number [a to abort]: ')
 				if new == 'a':
 					return False
 				assert float(new)
 				d['pack_price'] = float(new)
 			elif choice2 == '5':
 				print('number of cigarettes in your pack: {}'.format(d['pack_amount']))
-				new = raw_input('enter new number [a to abort]: ')
+				new = input('enter new number [a to abort]: ')
 				if new == 'a':
 					return False
 				assert int(new)
 				d['pack_amount'] = int(new)
 			elif choice2 == '6':
 				print('current currency: {}'.format(d['currency_sign']))
-				new = raw_input('enter new number [a to abort]: ')
+				new = input('enter new number [a to abort]: ')
 				if new == 'a':
 					return False
 				assert len(new) == 1
 				d['currency_sign'] = new
 			elif choice2 == '7':
 				print('current life in minutes saved per cigarette: {}'.format(d['life']))
-				new = raw_input('enter new number [a to abort, 0 to ignore]: ')
+				new = input('enter new number [a to abort, 0 to ignore]: ')
 				if new == 'a':
 					return False
 				if new == '0': #zero
@@ -297,7 +297,7 @@ class QuitSmoking:
 				d['life'] = int(new)
 			elif choice2 == '8':
 				print('current display timetable and progress bars in stats: {}, filler:"{}", empty:"{}"'.format(d['pbars'],d['pbar_fill'],d['pbar_empty']))
-				new = raw_input('1) display all progress bars and health information\n2) display no progress bars and no health information\n3) display only progress bars < 100% and health information\n4) display only progress bars and no health information\n5) change progress bar filler charater\n6) change progress bar empty character\nEnter number of choice:')
+				new = input('1) display all progress bars and health information\n2) display no progress bars and no health information\n3) display only progress bars < 100% and health information\n4) display only progress bars and no health information\n5) change progress bar filler charater\n6) change progress bar empty character\nEnter number of choice:')
 				if new == '1':
 					d['pbars'] = 'display_all'
 				elif new == '2':
@@ -308,13 +308,13 @@ class QuitSmoking:
 					d['pbars'] = 'bar_only'
 					
 				elif new == '5':
-					filler = raw_input('Enter new character for progress bar filler: ')
+					filler = input('Enter new character for progress bar filler: ')
 					if len(filler) == 1:
 						d['pbar_fill'] = filler
 					else:
 						print('Progress bar filler must be one character')
 				elif new == '6':
-					empty = raw_input('Enter new character for progress bar empty: ')
+					empty = input('Enter new character for progress bar empty: ')
 					if len(empty) == 1:
 						d['pbar_empty'] = empty
 					else:
@@ -322,7 +322,7 @@ class QuitSmoking:
 			elif choice2 == '9':
 				print('Current Daylight Savings Time setting is {}'.format(d['dst']))
 				print('If daylight savings time is true, it will display 1 hour extra in your time since smoking.')
-				new = raw_input('1) Set to true\n2) Set to false: \n')
+				new = input('1) Set to true\n2) Set to false: \n')
 				if new == '1':
 					d['dst'] = True
 				elif new == '2':
@@ -340,14 +340,14 @@ class QuitSmoking:
 					print('Current quit date string is: {}'.format(time.strftime(d['time_pattern'], time.localtime(d['epoch_stamp']))))
 					print('current time pattern is: {}'.format(d['time_pattern']))
 					print('You must keep the current time pattern when changing by string. To change your quit date, just create a new time string of when you quit smoking, in the current time pattern.')
-					new = raw_input('enter new time string [a to abort]: ')
+					new = input('enter new time string [a to abort]: ')
 					try:
 						self.timer.update(time_string=new) #update time stamp
 						d['epoch_stamp'] = self.timer.time_stamp
 					except ValueError:
 						print('\nYour new time string {} did not match the current time pattern {}, operation aborted!'.format(new, d['time_pattern']))
 				elif choice3 == '3':
-					new = raw_input('enter new unix epoch number [a to abort]: ')
+					new = input('enter new unix epoch number [a to abort]: ')
 					if new == 'a':
 						return False
 					assert float(new)
@@ -359,7 +359,7 @@ class QuitSmoking:
 					year = list(range(1970, datetime.datetime.now().year + 1))
 					
 					while True:
-						month_ch = raw_input('What month did you quit? {}-{}: '.format(m_or_h[0],m_or_h[-1]))
+						month_ch = input('What month did you quit? {}-{}: '.format(m_or_h[0],m_or_h[-1]))
 						incorrect = '{} is not a valid month'.format(month_ch)
 						try:
 							if int(month_ch) in m_or_h:
@@ -369,7 +369,7 @@ class QuitSmoking:
 						except ValueError:
 							print(incorrect)
 					while True:
-						day_ch = raw_input('What day did you quit? {}-{}: '.format(day[0], day[-1]))
+						day_ch = input('What day did you quit? {}-{}: '.format(day[0], day[-1]))
 						incorrect = '{} is not a valid day'.format(day_ch)
 						try:
 							if int(day_ch) in day:
@@ -379,7 +379,7 @@ class QuitSmoking:
 						except ValueError:
 							print(incorrect)
 					while True:
-						year_ch = raw_input('What year did you quit? {}-{}: '.format(year[0], year[-1]))
+						year_ch = input('What year did you quit? {}-{}: '.format(year[0], year[-1]))
 						incorrect = '{} is not a valid year'.format(year_ch)
 						try:
 							if int(year_ch) in year:
@@ -390,7 +390,7 @@ class QuitSmoking:
 							print(incorrect)
 						
 					while True:
-						hour_ch = raw_input('What hour did you quit? {}-{}: '.format(m_or_h[0],m_or_h[-1]))
+						hour_ch = input('What hour did you quit? {}-{}: '.format(m_or_h[0],m_or_h[-1]))
 						incorrect = '{} is not a valid hour'.format(hour_ch)
 						try:
 							if int(hour_ch) in m_or_h:
@@ -400,7 +400,7 @@ class QuitSmoking:
 						except ValueError:
 							print(incorrect)
 					while True:
-						minute_ch = raw_input('What minute did you quit? {}-{}: '.format(minute[0],minute[-1]))
+						minute_ch = input('What minute did you quit? {}-{}: '.format(minute[0],minute[-1]))
 						incorrect = '{} is not a valid minute'.format(minute_ch)
 						try:
 							if int(minute_ch) in minute:
@@ -410,7 +410,7 @@ class QuitSmoking:
 						except ValueError:
 							print(incorrect)
 					while True:
-						period_ch = raw_input('What period? [AM/PM]: ')
+						period_ch = input('What period? [AM/PM]: ')
 						if period_ch == 'AM' or period_ch == 'PM':
 							break
 						else:

@@ -133,8 +133,8 @@ if __name__ == '__main__':
 
 
 	ach_obj = Achievement()
-	print(ach_string('time', ach_obj), end='')
-	print(ach_string('life', ach_obj), end='')
-	print(ach_string('cig', ach_obj), end='')
+	print(ach_string('time', ach_obj))
+	print(ach_string('life', ach_obj))
+	print(ach_string('cig', ach_obj))
 
 
